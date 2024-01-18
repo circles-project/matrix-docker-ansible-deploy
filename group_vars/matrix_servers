@@ -404,9 +404,7 @@ devture_systemd_service_manager_services_list_auto: |
     +
     ([{'name': (devture_traefik_certs_dumper_identifier + '.service'), 'priority': 300, 'groups': ['matrix', 'traefik-certs-dumper']}] if devture_traefik_certs_dumper_enabled else [])
     +
-# Swiclops
     ([{'name': (matrix_swiclops_identifier + '.service'), 'priority': 1250, 'groups': ['matrix', 'swiclops']}] if matrix_swiclops_enabled else [])
-# End swiclops
   }}
 
 ########################################################################
