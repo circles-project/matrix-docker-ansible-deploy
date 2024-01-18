@@ -72,3 +72,9 @@
 - src: git+https://github.com/devture/com.devture.ansible.role.traefik_certs_dumper.git
   version: v2.8.3-1
   name: traefik_certs_dumper
+
+# Swiclops authentication service
+- src: git+https://gitlab.futo.org/cvwright/ansible-role-swiclops.git
+  version: eb59e7af5e31301db9e089f2750ef1a0c6198fbc
+  name: swiclops
+# End swiclops changes
