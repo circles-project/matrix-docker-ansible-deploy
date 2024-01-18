@@ -137,6 +137,10 @@
 
     - role: galaxy/traefik_certs_dumper
 
+    # Swiclops authentication service
+    - galaxy/swiclops
+    # End swiclops changes
+
     - when: devture_systemd_service_manager_enabled | bool
       role: galaxy/systemd_service_manager
 
