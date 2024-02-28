@@ -1,3 +1,40 @@
+# 2024-02-19
+
+## Support for bridging to Facebook/Messenger via the new mautrix-meta bridge
+
+The [mautrix-facebook](./docs/configuring-playbook-bridge-mautrix-facebook.md) and [mautrix-instagram](./docs/configuring-playbook-bridge-mautrix-instagram.md) bridges are being [superseded by a new bridge](https://github.com/mautrix/facebook/issues/332) - the [mautrix-meta](https://github.com/mautrix/meta) bridge.
+
+The playbook now supports the new mautrix-meta bridge - a single bridge, which can run in different modes and bridge to Messenger (via [Facebook](https://facebook.com/), Facebook over [Tor](https://www.torproject.org/) or via [Messenger](https://messenger.com/)) and [Instagram](https://instagram.com/). The playbook makes this bridge available via 2 separate Ansible roles, allowing you to easily run 2 instances of mautrix-meta, for bridging to both services at the same time.
+
+If you're using mautrix-facebook or mautrix-instagram right now, **you can still continue using the old bridges, but may wish to change to the new bridge implementations**. See:
+
+- [Setting up Instagram bridging via Mautrix Meta](docs/configuring-playbook-bridge-mautrix-meta-instagram.md)
+
+- [Setting up Messenger bridging via Mautrix Meta](docs/configuring-playbook-bridge-mautrix-meta-messenger.md)
+
+The documentation pages contain more information on how to migrate.
+
+
+# 2024-02-14
+
+## Much larger Synapse caches and cache auto-tuning enabled by default
+
+Thanks to [FSG-Cat](https://github.com/FSG-Cat), the playbook now uses much larger caches and enables Synapse's [cache auto-tuning functionality](https://matrix-org.github.io/synapse/latest/usage/configuration/config_documentation.html#caches-and-associated-values).
+This work and the default values used by the playbook are inspired by [Tom Foster](https://github.com/tcpipuk)'s [Synapse homeserver guide](https://tcpipuk.github.io/synapse/deployment/synapse.html).
+
+The playbook has always used a very conservative cache factor (`matrix_synapse_caches_global_factor`) value of `0.5`, which may be OK for small and underactive deployments, but is not ideal for larger servers. Paradoxically, a small global cache factor value [does not necessarily decrease RAM usage as a whole](https://github.com/matrix-org/synapse/issues/3939).
+
+The playbook now uses **a 20x larger cache factor** (currently `10`), adjusts a few other cache-related variables, and **enables cache auto-tuning** via the following variables:
+
+- `matrix_synapse_cache_autotuning_max_cache_memory_usage` - defaults to 1/8 of total RAM with a cap of 2GB; values are specified in bytes
+- `matrix_synapse_cache_autotuning_target_cache_memory_usage` - defaults to 1/16 of total RAM with a cap of 1GB; values are specified in bytes
+- `matrix_synapse_cache_autotuning_min_cache_ttl` - defaults to `30s`
+
+These values should be good defaults for most servers, but may change over time as we experiment further.
+
+Refer to our new [Tuning caches and cache autotuning](docs/maintenance-synapse.md#tuning-caches-and-cache-autotuning) documentation section for more details.
+
+
 # 2024-01-31
 
 ## (Backward-compatibility break) Minor changes necessary for some people serving a static website at the base domain
