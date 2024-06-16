@@ -6,6 +6,7 @@
   tags:
     - setup-all
     - install-all
+    - pre-setup
 
   tasks:
   - name: "Run pre-setup AUX commands"
@@ -13,6 +14,8 @@
     with_items: "{{ circles_pre_setup_aux_command_definitions }}"
     loop_control:
       label: "{{ item.command }}"
+    when: circles_pre_setup_aux_command_definitions is defined
+
 # Circles changes end
 
 - name: "Set up a Matrix server"
