@@ -433,6 +433,8 @@ devture_systemd_service_manager_services_list_auto: |
     ([{'name': (devture_traefik_certs_dumper_identifier + '.service'), 'priority': 300, 'groups': ['matrix', 'traefik-certs-dumper']}] if devture_traefik_certs_dumper_enabled else [])
     +
     ([{'name': (matrix_swiclops_identifier + '.service'), 'priority': 1250, 'groups': ['matrix', 'swiclops']}] if matrix_swiclops_enabled else [])
+    +
+    ([{'name': (postgres_backup_s3_identifier + '.service'), 'priority': 5000, 'groups': ['matrix', 'backup', 'postgres-backup-s3']}] if postgres_backup_s3_enabled else [])
   }}
 
 ########################################################################
@@ -3893,6 +3895,42 @@ devture_postgres_backup_databases: "{{ devture_postgres_managed_databases | map(
 ########################################################################
 #                                                                      #
 # /com.devture.ansible.role.postgres_backup                            #
+#                                                                      #
+########################################################################
+
+########################################################################
+#                                                                      #
+# postgres-backup-s3                                                   #
+#                                                                      #
+########################################################################
+
+postgres_backup_s3_enabled: false
+
+postgres_backup_s3_identifier: matrix-postgres-backup-s3
+
+postgres_backup_s3_base_path: "{{ matrix_base_data_path }}/postgres-backup-s3"
+
+postgres_backup_s3_systemd_required_services_list_auto: |
+  {{
+    ([(devture_postgres_identifier + '.service')] if (devture_postgres_enabled and postgres_backup_s3_host == devture_postgres_connection_hostname) else [])
+  }}
+
+postgres_backup_s3_container_network: "{{ (devture_postgres_container_network if (devture_postgres_enabled and postgres_backup_s3_host == devture_postgres_connection_hostname) else postgres_backup_s3_identifier) }}"
+
+postgres_backup_s3_container_additional_networks: |
+  {{
+      ([devture_postgres_container_network] if (devture_postgres_enabled and postgres_backup_s3_host == devture_postgres_connection_hostname and postgres_backup_s3_container_network != devture_postgres_container_network) else [])
+  }}
+
+postgres_backup_s3_database: "{{ devture_postgres_managed_databases | map(attribute='name') if devture_postgres_enabled else [] }}"
+postgres_backup_s3_host: "{{ devture_postgres_connection_hostname if devture_postgres_enabled else '' }}"
+postgres_backup_s3_port: "{{ devture_postgres_connection_port if devture_postgres_enabled else 5432 }}"
+postgres_backup_s3_user: "{{ devture_postgres_connection_username if devture_postgres_enabled else '' }}"
+postgres_backup_s3_password: "{{ devture_postgres_connection_password if devture_postgres_enabled else '' }}"
+
+########################################################################
+#                                                                      #
+# /postgres-backup-s3                                                  #
 #                                                                      #
 ########################################################################
 

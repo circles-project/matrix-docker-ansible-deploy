@@ -81,3 +81,9 @@
   version: 6914e26445b504b50031c914e4d5b421d28aa095
   name: swiclops
 # End swiclops changes
+
+# postgres-backup-s3 service
+- src: git+https://gitlab.futo.org/circles/ansible-role-postgres-backup-s3.git
+  version: 9fe63ccb6ab07c450408ac2ceb7f892cc8e90b83
+  name: postgres_backup_s3
+# End postgres-backup-s3 changes

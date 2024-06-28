@@ -70,6 +70,10 @@
     - galaxy/swiclops
     # End swiclops changes
 
+    # postgres-backup-s3 service
+    - galaxy/postgres_backup_s3
+    # End postgres-backup-s3 changes
+
     - galaxy/redis
     - galaxy/keydb
     - custom/matrix-corporal
