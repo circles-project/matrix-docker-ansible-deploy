@@ -1,0 +1,50 @@
+---
+
+# Synapse Usage Exporter
+# Project source code URL: https://github.com/loelkes/synapse-usage-exporter/tree/main
+
+matrix_synapse_usage_exporter_enabled: false
+
+# matrix_synapse_usage_exporter_identifier controls the identifier of this synapse-usage-exporter instance, which influences:
+# - the default storage path
+# - the names of systemd services and containers
+matrix_synapse_usage_exporter_identifier: matrix-synapse-usage-exporter
+matrix_synapse_usage_exporter_container_port: 5000
+
+# No docker images are currently hosted for the repo, so defaulting to true
+matrix_synapse_usage_exporter_container_image_self_build: true
+matrix_synapse_usage_exporter_container_image_self_build_repo: "https://github.com/loelkes/synapse-usage-exporter.git"
+
+matrix_synapse_usage_exporter_docker_image_path: "loelkes/synapse-usage-exporter"
+matrix_synapse_usage_exporter_docker_image: "{{ matrix_synapse_usage_exporter_docker_image_name_prefix }}{{ matrix_synapse_usage_exporter_docker_image_path }}:{{ matrix_synapse_usage_exporter_docker_image_tag }}"
+matrix_synapse_usage_exporter_docker_image_name_prefix: "{{ 'localhost/' if matrix_synapse_usage_exporter_container_image_self_build else matrix_container_global_registry_prefix }}"
+matrix_synapse_usage_exporter_docker_image_tag: "{{ 'main' if matrix_synapse_usage_exporter_container_image_self_build else 'latest' }}"
+matrix_synapse_usage_exporter_docker_image_force_pull: "{{ matrix_synapse_usage_exporter_docker_image.endswith(':latest') }}"
+
+matrix_synapse_usage_exporter_base_path: "{{ matrix_base_data_path }}/{{ matrix_synapse_usage_exporter_identifier }}"
+matrix_synapse_usage_exporter_docker_src_files_path: "{{ matrix_synapse_usage_exporter_base_path }}/docker-src"
+
+# List of systemd services that synapse-usage-exporter.service depends on
+matrix_synapse_usage_exporter_systemd_required_services_list: "{{ matrix_synapse_usage_exporter_systemd_required_services_list_default + matrix_synapse_usage_exporter_systemd_required_services_list_auto + matrix_synapse_usage_exporter_systemd_required_services_list_custom }}"
+matrix_synapse_usage_exporter_systemd_required_services_list_default: ["docker.service"]
+matrix_synapse_usage_exporter_systemd_required_services_list_auto: []
+matrix_synapse_usage_exporter_systemd_required_services_list_custom: []
+
+# List of systemd services that synapse-usage-exporter.service wants
+matrix_synapse_usage_exporter_systemd_wanted_services_list: []
+
+# The base container network. It will be auto-created by this role if it doesn't exist already.
+matrix_synapse_usage_exporter_container_network: "{{ matrix_synapse_usage_exporter_identifier }}"
+
+# A list of additional container networks that the container would be connected to.
+# The role does not create these networks, so make sure they already exist.
+# Use this to expose this container to another reverse proxy, which runs in a different container network.
+matrix_synapse_usage_exporter_container_additional_networks: []
+
+# Extra arguments for the Docker container
+matrix_synapse_usage_exporter_container_extra_arguments: []
+
+# matrix_synapse_usage_exporter_dashboard_urls contains a list of URLs with Grafana dashboard definitions.
+# If the Grafana role is enabled, these dashboards will be downloaded.
+matrix_synapse_usage_exporter_dashboard_urls:
+  - https://raw.githubusercontent.com/loelkes/synapse-usage-exporter/main/grafana/dashboard.json
