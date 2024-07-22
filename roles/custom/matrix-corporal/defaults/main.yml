@@ -5,7 +5,7 @@
 matrix_corporal_enabled: true
 
 # renovate: datasource=docker depName=devture/matrix-corporal
-matrix_corporal_version: 2.7.0
+matrix_corporal_version: 2.8.0
 
 matrix_corporal_container_image_self_build: false
 matrix_corporal_container_image_self_build_repo: "https://github.com/devture/matrix-corporal.git"
@@ -77,7 +77,7 @@ matrix_corporal_container_labels_additional_labels: ''
 
 # List of systemd services that matrix-corporal.service depends on
 matrix_corporal_systemd_required_services_list: "{{ matrix_corporal_systemd_required_services_list_default + matrix_corporal_systemd_required_services_list_auto + matrix_corporal_systemd_required_services_list_custom }}"
-matrix_corporal_systemd_required_services_list_default: ['docker.service']
+matrix_corporal_systemd_required_services_list_default: "{{ [devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [] }}"
 matrix_corporal_systemd_required_services_list_auto: []
 matrix_corporal_systemd_required_services_list_custom: []
 
@@ -92,6 +92,7 @@ matrix_corporal_config_dir_path: "{{ matrix_corporal_base_path }}/config"
 matrix_corporal_cache_dir_path: "{{ matrix_corporal_base_path }}/cache"
 matrix_corporal_var_dir_path: "{{ matrix_corporal_base_path }}/var"
 
+matrix_corporal_matrix_homeserver_scheme: https
 matrix_corporal_matrix_homeserver_domain_name: "{{ matrix_domain }}"
 matrix_corporal_matrix_homeserver_api_domain_name: "{{ matrix_server_fqn_matrix }}"
 
@@ -164,5 +165,5 @@ matrix_corporal_configuration_extension: "{{ matrix_corporal_configuration_exten
 # You most likely don't need to touch this variable. Instead, see `matrix_corporal_configuration_default`.
 matrix_corporal_configuration: "{{ matrix_corporal_configuration_default | combine(matrix_corporal_configuration_extension, recursive=True) }}"
 
-matrix_corporal_self_check_matrix_client_api_url_endpoint_public: "https://{{ matrix_corporal_matrix_homeserver_api_domain_name }}/_matrix/client/corporal"
-matrix_corporal_self_check_corporal_api_url_endpoint_public: "https://{{ matrix_corporal_matrix_homeserver_api_domain_name }}/_matrix/corporal/policy"
+matrix_corporal_self_check_matrix_client_api_url_endpoint_public: "{{ matrix_corporal_matrix_homeserver_scheme }}://{{ matrix_corporal_matrix_homeserver_api_domain_name }}/_matrix/client/corporal"
+matrix_corporal_self_check_corporal_api_url_endpoint_public: "{{ matrix_corporal_matrix_homeserver_scheme }}://{{ matrix_corporal_matrix_homeserver_api_domain_name }}/_matrix/corporal/policy"

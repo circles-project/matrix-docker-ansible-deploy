@@ -63,7 +63,7 @@ pid_file: /homeserver.pid
 #
 # Defaults to 'https://<server_name>/'.
 #
-public_baseurl: https://{{ matrix_server_fqn_matrix }}/
+public_baseurl: {{ matrix_synapse_public_baseurl | to_json }}
 
 # Uncomment the following to tell other servers to send federation traffic on
 # port 443.
@@ -1541,7 +1541,7 @@ autocreate_auto_join_rooms: {{ matrix_synapse_autocreate_auto_join_rooms|to_json
 # Note that, if the room already exists, this user must be joined and
 # have the appropriate permissions to invite new members.
 #
-#auto_join_mxid_localpart: system
+auto_join_mxid_localpart: {{ matrix_synapse_auto_join_mxid_localpart | to_json }}
 
 # When auto_join_rooms is specified, setting this flag to false prevents
 # guest accounts from being automatically joined to the rooms.
@@ -1549,6 +1549,12 @@ autocreate_auto_join_rooms: {{ matrix_synapse_autocreate_auto_join_rooms|to_json
 # Defaults to true.
 #
 #auto_join_rooms_for_guests: false
+
+auto_accept_invites:
+    enabled: {{ matrix_synapse_auto_accept_invites_enabled | to_json }}
+    only_for_direct_messages: {{ matrix_synapse_auto_accept_invites_only_for_direct_messages | to_json }}
+    only_from_local_users: {{ matrix_synapse_auto_accept_invites_only_from_local_users | to_json }}
+    worker_to_run_on: {{ matrix_synapse_auto_accept_invites_worker_to_run_on | to_json }}
 
 # Whether to inhibit errors raised when registering a new account if the user ID
 # already exists. If turned on, that requests to /register/available will always
@@ -1565,7 +1571,7 @@ autocreate_auto_join_rooms: {{ matrix_synapse_autocreate_auto_join_rooms|to_json
 
 # Enable collection and rendering of performance metrics
 #
-enable_metrics: {{ matrix_synapse_metrics_enabled|to_json  }}
+enable_metrics: {{ matrix_synapse_metrics_enabled|to_json }}
 
 # Enable sentry integration
 # NOTE: While attempts are made to ensure that the logs don't contain
@@ -2921,6 +2927,9 @@ redis:
   #
   host: {{ matrix_synapse_redis_host }}
   port: {{ matrix_synapse_redis_port }}
+
+  # Optional database ID to connect to. Defaults to 0.
+  dbid: {{ matrix_synapse_redis_dbid }}
 
   # Optional password if configured on the Redis instance
   #
