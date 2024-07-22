@@ -13,14 +13,14 @@ matrix_sygnal_hostname: ''
 matrix_sygnal_path_prefix: /
 
 # renovate: datasource=docker depName=matrixdotorg/sygnal
-matrix_sygnal_version: v0.14.0
+matrix_sygnal_version: v0.15.0
 
 matrix_sygnal_base_path: "{{ matrix_base_data_path }}/sygnal"
 matrix_sygnal_config_path: "{{ matrix_sygnal_base_path }}/config"
 matrix_sygnal_data_path: "{{ matrix_sygnal_base_path }}/data"
 
 # List of systemd services that matrix-sygnal.service depends on.
-matrix_sygnal_systemd_required_services_list: ['docker.service']
+matrix_sygnal_systemd_required_services_list: "{{ [devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [] }}"
 
 # List of systemd services that matrix-sygnal.service wants
 matrix_sygnal_systemd_wanted_services_list: []

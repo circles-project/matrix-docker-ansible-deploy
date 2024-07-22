@@ -70,7 +70,7 @@ matrix_client_schildichat_container_labels_additional_labels: ''
 matrix_client_schildichat_container_extra_arguments: []
 
 # List of systemd services that matrix-client-schildichat.service depends on
-matrix_client_schildichat_systemd_required_services_list: ['docker.service']
+matrix_client_schildichat_systemd_required_services_list: "{{ [devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [] }}"
 
 # Specifies the value of the `X-XSS-Protection` header
 # Stops pages from loading when they detect reflected cross-site scripting (XSS) attacks.
@@ -123,6 +123,7 @@ matrix_client_schildichat_floc_optout_enabled: true
 # See: `matrix_client_schildichat_http_header_strict_transport_security`
 matrix_client_schildichat_hsts_preload_enabled: false
 
+matrix_client_schildichat_scheme: https
 # The hostname at which schildichat is served.
 matrix_client_schildichat_hostname: "{{ matrix_server_fqn_schildichat }}"
 
@@ -134,6 +135,7 @@ matrix_client_schildichat_path_prefix: /
 matrix_client_schildichat_default_server_name: "{{ matrix_domain }}"
 matrix_client_schildichat_default_hs_url: ""
 matrix_client_schildichat_default_is_url: ~
+matrix_client_schildichat_map_style_url: "{{ matrix_client_schildichat_scheme }}://{{ matrix_client_schildichat_hostname }}/map_style.json"
 matrix_client_schildichat_disable_custom_urls: true
 matrix_client_schildichat_disable_guests: true
 matrix_client_schildichat_integrations_ui_url: "https://scalar.vector.im/"
