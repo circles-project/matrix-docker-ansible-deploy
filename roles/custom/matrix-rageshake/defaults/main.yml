@@ -17,7 +17,7 @@ matrix_rageshake_path_prefix: /
 # There are no stable container image tags yet.
 # See: https://github.com/matrix-org/rageshake/issues/69
 # renovate: datasource=docker depName=ghcr.io/matrix-org/rageshake
-matrix_rageshake_version: 1.12.0
+matrix_rageshake_version: 1.13.0
 
 matrix_rageshake_base_path: "{{ matrix_base_data_path }}/rageshake"
 matrix_rageshake_config_path: "{{ matrix_rageshake_base_path }}/config"
@@ -81,7 +81,7 @@ matrix_rageshake_container_labels_additional_labels: ''
 matrix_rageshake_container_extra_arguments: []
 
 # List of systemd services that matrix-rageshake.service depends on
-matrix_rageshake_systemd_required_services_list: ["docker.service"]
+matrix_rageshake_systemd_required_services_list: "{{ [devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [] }}"
 
 # List of systemd services that matrix-rageshake.service wants
 matrix_rageshake_systemd_wanted_services_list: []

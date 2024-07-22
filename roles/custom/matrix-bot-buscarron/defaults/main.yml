@@ -6,7 +6,7 @@
 matrix_bot_buscarron_enabled: true
 
 # renovate: datasource=docker depName=registry.gitlab.com/etke.cc/buscarron
-matrix_bot_buscarron_version: v1.4.0
+matrix_bot_buscarron_version: v1.4.1
 
 # The hostname at which Buscarron is served.
 matrix_bot_buscarron_hostname: ''
@@ -88,7 +88,7 @@ matrix_bot_buscarron_container_extra_arguments: []
 
 # List of systemd services that matrix-bot-buscarron.service depends on
 matrix_bot_buscarron_systemd_required_services_list: "{{ matrix_bot_buscarron_systemd_required_services_list_default + matrix_bot_buscarron_systemd_required_services_list_auto + matrix_bot_buscarron_systemd_required_services_list_custom }}"
-matrix_bot_buscarron_systemd_required_services_list_default: ['docker.service']
+matrix_bot_buscarron_systemd_required_services_list_default: "{{ [devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [] }}"
 matrix_bot_buscarron_systemd_required_services_list_auto: []
 matrix_bot_buscarron_systemd_required_services_list_custom: []
 
