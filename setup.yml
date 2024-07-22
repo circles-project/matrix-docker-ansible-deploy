@@ -51,6 +51,7 @@
     - galaxy/keydb
     - custom/matrix-corporal
     - custom/matrix-appservice-draupnir-for-all
+    - custom/matrix-alertmanager-receiver
     - custom/matrix-bridge-appservice-discord
     - custom/matrix-bridge-appservice-slack
     - custom/matrix-bridge-appservice-webhooks
@@ -58,6 +59,7 @@
     - custom/matrix-bridge-appservice-kakaotalk
     - custom/matrix-bridge-beeper-linkedin
     - custom/matrix-bridge-go-skype-bridge
+    - custom/matrix-bridge-wechat
     - custom/matrix-bridge-mautrix-facebook
     - custom/matrix-bridge-mautrix-twitter
     - custom/matrix-bridge-mautrix-hangouts
@@ -126,8 +128,6 @@
     - custom/matrix-media-repo
     - custom/matrix-pantalaimon
 
-    - role: galaxy/auxiliary
-
     - role: galaxy/postgres_backup
 
     - role: galaxy/backup_borg
@@ -140,6 +140,8 @@
     - role: galaxy/traefik
 
     - role: galaxy/traefik_certs_dumper
+
+    - role: galaxy/auxiliary
 
     - when: devture_systemd_service_manager_enabled | bool
       role: galaxy/systemd_service_manager

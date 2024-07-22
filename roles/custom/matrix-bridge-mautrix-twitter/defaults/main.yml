@@ -9,7 +9,7 @@ matrix_mautrix_twitter_container_image_self_build_repo: "https://github.com/maut
 matrix_mautrix_twitter_container_image_self_build_repo_version: "{{ 'master' if matrix_mautrix_twitter_version == 'latest' else matrix_mautrix_twitter_version }}"
 
 # renovate: datasource=docker depName=dock.mau.dev/mautrix/twitter
-matrix_mautrix_twitter_version: v0.1.7
+matrix_mautrix_twitter_version: v0.1.8
 # See: https://mau.dev/tulir/mautrix-twitter/container_registry
 matrix_mautrix_twitter_docker_image: "{{ matrix_mautrix_twitter_docker_image_name_prefix }}mautrix/twitter:{{ matrix_mautrix_twitter_version }}"
 matrix_mautrix_twitter_docker_image_name_prefix: "{{ 'localhost/' if matrix_mautrix_twitter_container_image_self_build else 'dock.mau.dev/' }}"
@@ -72,7 +72,7 @@ matrix_mautrix_twitter_container_extra_arguments: []
 
 # List of systemd services that matrix-mautrix-twitter.service depends on.
 matrix_mautrix_twitter_systemd_required_services_list: "{{ matrix_mautrix_twitter_systemd_required_services_list_default + matrix_mautrix_twitter_systemd_required_services_list_auto + matrix_mautrix_twitter_systemd_required_services_list_custom }}"
-matrix_mautrix_twitter_systemd_required_services_list_default: ['docker.service']
+matrix_mautrix_twitter_systemd_required_services_list_default: "{{ [devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [] }}"
 matrix_mautrix_twitter_systemd_required_services_list_auto: []
 matrix_mautrix_twitter_systemd_required_services_list_custom: []
 
