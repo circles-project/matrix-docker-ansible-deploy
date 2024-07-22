@@ -10,7 +10,7 @@ matrix_bot_postmoogle_docker_repo_version: "{{ 'main' if matrix_bot_postmoogle_v
 matrix_bot_postmoogle_docker_src_files_path: "{{ matrix_base_data_path }}/postmoogle/docker-src"
 
 # renovate: datasource=docker depName=registry.gitlab.com/etke.cc/postmoogle
-matrix_bot_postmoogle_version: v0.9.17
+matrix_bot_postmoogle_version: v0.9.18
 matrix_bot_postmoogle_docker_image: "{{ matrix_bot_postmoogle_docker_image_name_prefix }}etke.cc/postmoogle:{{ matrix_bot_postmoogle_version }}"
 matrix_bot_postmoogle_docker_image_name_prefix: "{{ 'localhost/' if matrix_bot_postmoogle_container_image_self_build else 'registry.gitlab.com/' }}"
 matrix_bot_postmoogle_docker_image_force_pull: "{{ matrix_bot_postmoogle_docker_image.endswith(':latest') }}"
@@ -30,7 +30,7 @@ matrix_bot_postmoogle_container_extra_arguments: []
 
 # List of systemd services that matrix-bot-postmoogle.service depends on
 matrix_bot_postmoogle_systemd_required_services_list: "{{ matrix_bot_postmoogle_systemd_required_services_list_default + matrix_bot_postmoogle_systemd_required_services_list_auto + matrix_bot_postmoogle_systemd_required_services_list_custom }}"
-matrix_bot_postmoogle_systemd_required_services_list_default: ['docker.service']
+matrix_bot_postmoogle_systemd_required_services_list_default: "{{ [devture_systemd_docker_base_docker_service_name] if devture_systemd_docker_base_docker_service_name else [] }}"
 matrix_bot_postmoogle_systemd_required_services_list_auto: []
 matrix_bot_postmoogle_systemd_required_services_list_custom: []
 
