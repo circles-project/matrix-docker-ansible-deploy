@@ -1,4 +1,23 @@
 ---
+# Circles changes start
+- name: "Pre Matrix server setup"
+  hosts: "{{ target if target is defined else 'matrix_servers' }}"
+  become: true
+  tags:
+    - setup-all
+    - install-all
+    - pre-setup
+
+  tasks:
+  - name: "Run pre-setup AUX commands"
+    ansible.builtin.shell: "{{ item.command }}"
+    with_items: "{{ circles_pre_setup_aux_command_definitions }}"
+    loop_control:
+      label: "{{ item.command }}"
+    when: circles_pre_setup_aux_command_definitions is defined
+
+# Circles changes end
+
 - name: "Set up a Matrix server"
   hosts: "{{ target if target is defined else 'matrix_servers' }}"
   become: true
@@ -46,6 +65,14 @@
     - galaxy/exim_relay
 
     - role: galaxy/postgres
+
+    # Swiclops authentication service
+    - galaxy/swiclops
+    # End swiclops changes
+
+    # postgres-backup-s3 service
+    - galaxy/postgres_backup_s3
+    # End postgres-backup-s3 changes
 
     - galaxy/redis
     - galaxy/keydb

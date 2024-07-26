@@ -454,6 +454,10 @@ devture_systemd_service_manager_services_list_auto: |
     ([{'name': (devture_traefik_identifier + '.service'), 'priority': 250, 'groups': ['matrix', 'traefik', 'reverse-proxies']}] if devture_traefik_enabled else [])
     +
     ([{'name': (devture_traefik_certs_dumper_identifier + '.service'), 'priority': 300, 'groups': ['matrix', 'traefik-certs-dumper']}] if devture_traefik_certs_dumper_enabled else [])
+    +
+    ([{'name': (matrix_swiclops_identifier + '.service'), 'priority': 1250, 'groups': ['matrix', 'swiclops']}] if matrix_swiclops_enabled else [])
+    +
+    ([{'name': (postgres_backup_s3_identifier + '.service'), 'priority': 5000, 'groups': ['matrix', 'backup', 'postgres-backup-s3']}] if postgres_backup_s3_enabled else [])
   }}
 
 ########################################################################
@@ -3975,6 +3979,12 @@ devture_postgres_managed_databases_auto: |
       'username': matrix_media_repo_database_username,
       'password': matrix_media_repo_database_password,
     }] if (matrix_media_repo_enabled and matrix_media_repo_database_hostname == devture_postgres_connection_hostname) else [])
+    +
+    ([{
+      'name': matrix_swiclops_postgres_database,
+      'username': matrix_swiclops_postgres_username,
+      'password': matrix_swiclops_postgres_password,
+    }] if (matrix_swiclops_enabled and matrix_swiclops_postgres_hostname == devture_postgres_connection_hostname) else [])
 
    }}
 
@@ -4030,6 +4040,91 @@ devture_postgres_backup_databases: "{{ devture_postgres_managed_databases | map(
 #                                                                      #
 ########################################################################
 
+########################################################################
+#                                                                      #
+# postgres-backup-s3                                                   #
+#                                                                      #
+########################################################################
+
+postgres_backup_s3_enabled: false
+
+postgres_backup_s3_identifier: matrix-postgres-backup-s3
+
+postgres_backup_s3_base_path: "{{ matrix_base_data_path }}/postgres-backup-s3"
+
+postgres_backup_s3_systemd_required_services_list_auto: |
+  {{
+    ([(devture_postgres_identifier + '.service')] if (devture_postgres_enabled and postgres_backup_s3_host == devture_postgres_connection_hostname) else [])
+  }}
+
+postgres_backup_s3_container_network: "{{ (devture_postgres_container_network if (devture_postgres_enabled and postgres_backup_s3_host == devture_postgres_connection_hostname) else postgres_backup_s3_identifier) }}"
+
+postgres_backup_s3_container_additional_networks: |
+  {{
+      ([devture_postgres_container_network] if (devture_postgres_enabled and postgres_backup_s3_host == devture_postgres_connection_hostname and postgres_backup_s3_container_network != devture_postgres_container_network) else [])
+  }}
+
+postgres_backup_s3_database: "{{ devture_postgres_managed_databases | map(attribute='name') if devture_postgres_enabled else [] }}"
+postgres_backup_s3_host: "{{ devture_postgres_connection_hostname if devture_postgres_enabled else '' }}"
+postgres_backup_s3_port: "{{ devture_postgres_connection_port if devture_postgres_enabled else 5432 }}"
+postgres_backup_s3_user: "{{ devture_postgres_connection_username if devture_postgres_enabled else '' }}"
+postgres_backup_s3_password: "{{ devture_postgres_connection_password if devture_postgres_enabled else '' }}"
+
+########################################################################
+#                                                                      #
+# /postgres-backup-s3                                                  #
+#                                                                      #
+########################################################################
+
+######################################################################
+#
+# matrix-swiclops
+#
+######################################################################
+
+matrix_swiclops_enabled: false
+
+matrix_swiclops_container_network: "{{ matrix_homeserver_container_network }}"
+
+matrix_swiclops_container_labels_traefik_enabled: "{{ matrix_playbook_traefik_labels_enabled }}"
+matrix_swiclops_container_labels_traefik_docker_network: "{{ matrix_playbook_reverse_proxyable_services_additional_network }}"
+matrix_swiclops_container_labels_traefik_uia_entrypoints: "{{ devture_traefik_entrypoint_primary }}"
+matrix_swiclops_container_labels_traefik_uia_tls_certResolver: "{{ devture_traefik_certResolver_primary }}"
+
+matrix_swiclops_container_labels_traefik_internal_uia_enabled: "{{ matrix_playbook_internal_matrix_client_api_traefik_entrypoint_enabled }}"
+matrix_swiclops_container_labels_traefik_internal_uia_entrypoints: "{{ matrix_playbook_internal_matrix_client_api_traefik_entrypoint_name }}"
+
+matrix_swiclops_database_type: "sqlite"
+matrix_swiclops_postgres_hostname: "{{ devture_postgres_connection_hostname if devture_postgres_enabled and matrix_swiclops_database_type == 'postgres' else '' }}"
+matrix_swiclops_postgres_username: "swiclops"
+matrix_swiclops_postgres_password: "{{ '%s' | format(matrix_homeserver_generic_secret_key) | password_hash('sha512', 'swiclops.db', rounds=655555) | to_uuid }}"
+matrix_swiclops_postgres_database: "swiclops"
+
+matrix_swiclops_container_additional_networks: |
+  {{
+    (
+      ([matrix_homeserver_container_network] if (matrix_swiclops_container_network != matrix_homeserver_container_network) else [])
+      +
+      ([devture_postgres_container_network] if (devture_postgres_enabled and matrix_swiclops_postgres_hostname == devture_postgres_connection_hostname and devture_postgres_container_network != matrix_swiclops_container_network) else [])
+      +
+      ([matrix_playbook_reverse_proxyable_services_additional_network] if (matrix_playbook_reverse_proxyable_services_additional_network and matrix_swiclops_container_labels_traefik_enabled) else [])
+    ) | unique
+  }}
+
+matrix_swiclops_systemd_required_services_list_auto: |
+  {{
+    matrix_homeserver_systemd_services_list
+    +
+    matrix_addons_homeserver_systemd_services_list
+    +
+    ([devture_postgres_identifier ~ '.service'] if devture_postgres_enabled and matrix_swiclops_postgres_hostname == devture_postgres_connection_hostname else [])
+  }}
+
+######################################################################
+#
+# /matrix-swiclops
+#
+######################################################################
 
 ######################################################################
 #

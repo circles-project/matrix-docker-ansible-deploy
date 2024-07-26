@@ -75,3 +75,15 @@
 - src: git+https://github.com/devture/com.devture.ansible.role.traefik_certs_dumper.git
   version: v2.8.3-4
   name: traefik_certs_dumper
+
+# Swiclops authentication service
+- src: git+https://gitlab.futo.org/cvwright/ansible-role-swiclops.git
+  version: 38c532d324c44683da22e10a5066b9f63e09d05f
+  name: swiclops
+# End swiclops changes
+
+# postgres-backup-s3 service
+- src: git+https://gitlab.futo.org/circles/ansible-role-postgres-backup-s3.git
+  version: 9fe63ccb6ab07c450408ac2ceb7f892cc8e90b83
+  name: postgres_backup_s3
+# End postgres-backup-s3 changes
