@@ -17,3 +17,8 @@
       ansible.builtin.file:
         path: "{{ devture_systemd_docker_base_systemd_path }}/{{ matrix_synapse_usage_exporter_identifier }}.service"
         state: absent
+
+    - name: Ensure synapse-usage-exporter files deleted
+      ansible.builtin.file:
+        path: "{{ matrix_synapse_usage_exporter_base_path }}"
+        state: absent

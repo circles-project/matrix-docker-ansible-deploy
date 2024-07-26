@@ -3617,6 +3617,12 @@ matrix_media_repo_container_labels_traefik_internal_media_entrypoints: "{{ matri
 matrix_media_repo_container_labels_traefik_internal_matrix_client_media_enabled: "{{ matrix_playbook_internal_matrix_client_api_traefik_entrypoint_enabled }}"
 matrix_media_repo_container_labels_traefik_internal_matrix_client_media_entrypoints: "{{ matrix_playbook_internal_matrix_client_api_traefik_entrypoint_name }}"
 
+matrix_media_repo_metrics_proxying_enabled: "{{ matrix_media_repo_metrics_enabled and matrix_metrics_exposure_enabled }}"
+matrix_media_repo_metrics_proxying_hostname: "{{ matrix_metrics_exposure_hostname }}"
+matrix_media_repo_metrics_proxying_path: "{{ matrix_metrics_exposure_path_prefix }}/matrix-media-repo"
+matrix_media_repo_container_labels_traefik_metrics_middleware_basic_auth_enabled: "{{ matrix_metrics_exposure_http_basic_auth_enabled }}"
+matrix_media_repo_container_labels_traefik_metrics_middleware_basic_auth_users: "{{ matrix_metrics_exposure_http_basic_auth_users }}"
+
 matrix_media_repo_database_hostname: "{{ devture_postgres_connection_hostname if devture_postgres_enabled else '' }}"
 matrix_media_repo_database_username: matrix_media_repo
 matrix_media_repo_database_password: "{{ '%s' | format(matrix_homeserver_generic_secret_key) | password_hash('sha512', 'mediarepo.db', rounds=655555) | to_uuid }}"
@@ -3649,6 +3655,11 @@ matrix_media_repo_homeservers_auto:
     # admin status. This should be set to one of "synapse", "dendrite", or "matrix". When set
     # to "matrix", most functionality requiring the admin API will not work.
     adminApiKind: "{{ 'synapse' if matrix_homeserver_implementation == 'synapse' else ('dendrite' if matrix_homeserver_implementation == 'dendrite' else 'matrix') }}"
+
+    # The signing key to use for authorizing outbound federation requests. If not specified,
+    # requests will not be authorized. See https://docs.t2bot.io/matrix-media-repo/v1.3.5/installation/signing-key/
+    # for details.
+    signingKeyPath: ""
 
 matrix_media_repo_homeserver_federation_enabled: "{{ matrix_homeserver_federation_enabled }}"
 
@@ -4551,6 +4562,10 @@ matrix_synapse_app_service_config_files_auto: "{{ matrix_homeserver_app_service_
 # Disable creation of media repository Synapse worker when using media-repo
 matrix_synapse_ext_media_repo_enabled: "{{ matrix_media_repo_enabled }}"
 
+# Enable Synapse statistics reporting when using synapse-usage-exporter
+matrix_synapse_report_stats: "{{ matrix_synapse_usage_exporter_enabled }}"
+matrix_synapse_report_stats_endpoint: "http://{{ matrix_synapse_usage_exporter_identifier }}:{{ matrix_synapse_usage_exporter_container_port | string }}/report-usage-stats/push"
+
 ######################################################################
 #
 # /matrix-synapse
@@ -4695,8 +4710,10 @@ matrix_synapse_usage_exporter_container_network: "{{ matrix_monitoring_container
 
 matrix_synapse_usage_exporter_container_additional_networks: "{{ [matrix_playbook_reverse_proxyable_services_additional_network] if matrix_playbook_reverse_proxyable_services_additional_network else [] }}"
 
-matrix_synapse_report_stats: "{{ true if matrix_synapse_usage_exporter_enabled else false }}"
-matrix_synapse_report_stats_endpoint: "http://{{ matrix_synapse_usage_exporter_identifier }}:{{ matrix_synapse_usage_exporter_container_port | string }}/report-usage-stats/push"
+matrix_synapse_usage_exporter_container_labels_traefik_enabled: "{{ matrix_synapse_usage_exporter_proxying_enabled }}"
+matrix_synapse_usage_exporter_container_labels_traefik_docker_network: "{{ matrix_playbook_reverse_proxyable_services_additional_network }}"
+matrix_synapse_usage_exporter_container_labels_traefik_entrypoints: "{{ devture_traefik_entrypoint_primary }}"
+matrix_synapse_usage_exporter_container_labels_traefik_tls_certResolver: "{{ devture_traefik_certResolver_primary }}"
 
 ######################################################################
 #
@@ -5006,11 +5023,6 @@ grafana_provisioning_dashboard_template_files: |
         'path': 'roles/custom/matrix-prometheus-nginxlog-exporter/templates/grafana/nginx-proxy.json',
         'name': 'nginx-proxy.json',
     }] if matrix_prometheus_nginxlog_exporter_enabled else [])
-    +
-    ([{
-        'path': 'roles/custom/matrix-media-repo/templates/grafana/media-repo.json',
-        'name': 'media-repo.json',
-    }] if matrix_media_repo_metrics_enabled else [])
   }}
 
 grafana_default_home_dashboard_path: |-
