@@ -472,6 +472,21 @@ matrix_media_repo_datastore_s3_opts_redirect_when_cached: true
 # 16 to avoid future incompatibilities with MMR. Defaults to zero (no prefix).
 matrix_media_repo_datastore_s3_opts_prefix_length: 0
 
+# Some S3 providers require S3 client setup using a specific bucket lookup style.
+# Valid options are 'DNS', 'Path', and 'Auto'. Defaults to Auto
+# matrix_media_repo_datastore_s3_opts_bucket_lookup_style: "Auto"
+
+# Set to true to redirect download requests with a presigned url. Defaults to false
+# matrix_media_repo_datastore_s3_opts_redirect_presign_url: false
+
+# Sets the expiration time when presigned url will be invalided after creation.
+# Valid units include "ns", "us", "ms", "s", "m", "h". Range can be as high as 7 days.
+# Defaults to "1h"
+# matrix_media_repo_datastore_s3_opts_redirect_presign_url_expire_time: "1h"
+
+# Specifies a modified domain to redirect to when using presigned urls (such as redirecting to a CDN).
+# matrix_media_repo_datastore_s3_opts_redirect_domain: "mycdn.example.org"
+
 # Options for controlling archives. Archives are exports of a particular user's content for
 # the purpose of GDPR or moving media to a different server.
 
