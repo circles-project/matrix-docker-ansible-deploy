@@ -1,23 +1,4 @@
 ---
-# Circles changes start
-- name: "Pre Matrix server setup"
-  hosts: "{{ target if target is defined else 'matrix_servers' }}"
-  become: true
-  tags:
-    - setup-all
-    - install-all
-    - pre-setup
-
-  tasks:
-  - name: "Run pre-setup AUX commands"
-    ansible.builtin.shell: "{{ item.command }}"
-    with_items: "{{ circles_pre_setup_aux_command_definitions }}"
-    loop_control:
-      label: "{{ item.command }}"
-    when: circles_pre_setup_aux_command_definitions is defined
-
-# Circles changes end
-
 - name: "Set up a Matrix server"
   hosts: "{{ target if target is defined else 'matrix_servers' }}"
   become: true
@@ -60,6 +41,7 @@
         - install-timesync
         - install-all
 
+    - {role: galaxy/auxiliary, aux_command_definitions: "{{ lookup('vars', 'pre_setup_aux_command_definitions', default=[]) }}"}
     - custom/matrix-base
     - custom/matrix-dynamic-dns
     - galaxy/exim_relay
