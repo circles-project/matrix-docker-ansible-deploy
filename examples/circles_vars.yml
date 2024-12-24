@@ -1,0 +1,632 @@
+---
+# The bare domain name which represents your Matrix identity.
+# Matrix user IDs for your server will be of the form (`@user:example.com`).
+#
+# Note: this playbook does not touch the server referenced here.
+# Installation happens on another server ("matrix.example.com", see `matrix_server_fqn_matrix`).
+#
+# If you've deployed using the wrong domain, you'll have to run the Uninstalling step,
+# because you can't change the Domain after deployment.
+matrix_domain: example.com
+
+# The Matrix homeserver software to install.
+# See:
+#  - `roles/custom/matrix-base/defaults/main.yml` for valid options
+# - the `docs/configuring-playbook-IMPLEMENTATION_NAME.md` documentation page, if one is available for your implementation choice
+#
+# By default, we use Synapse, because it's the only full-featured Matrix server at the moment.
+#
+# Note that the homeserver implementation of a server will not be able to be changed without data loss.
+matrix_homeserver_implementation: synapse
+
+# A secret used as a base, for generating various other secrets.
+# You can put any string here, but generating a strong one is preferred (e.g. `pwgen -s 64 1`).
+matrix_homeserver_generic_secret_key: ''
+
+# By default, the playbook manages its own Traefik (https://doc.traefik.io/traefik/) reverse-proxy server.
+# It will retrieve SSL certificates for you on-demand and forward requests to all other components.
+# For alternatives, see `docs/configuring-playbook-own-webserver.md`.
+matrix_playbook_reverse_proxy_type: playbook-managed-traefik
+
+# This is something which is provided to Let's Encrypt when retrieving SSL certificates for domains.
+#
+# In case SSL renewal fails at some point, you'll also get an email notification there.
+#
+# If you decide to use another method for managing SSL certificates (different than the default Let's Encrypt),
+# you won't be required to define this variable (see `docs/configuring-playbook-ssl-certificates.md`).
+#
+# Example value: someone@example.com
+devture_traefik_config_certificatesResolvers_acme_email: ''
+
+# Customization: The playbook doesn't natively support Fedora/RHEL/Rocky very well
+devture_timesync_ntpd_package: "systemd"
+devture_timesync_ntpd_service: "systemd-timesyncd"
+
+# By default, the playbook creates the user (`matrix_user_username`)
+# and group (`matrix_user_groupname`) with a random id.
+# To use a specific user/group id, override these variables.
+matrix_user_uid: 1999
+matrix_user_gid: 1999
+
+# Custom variables
+circles_playbook_run_timestamp: "{{ lookup('pipe', 'date +%Y%m%d-%H%M') }}"
+
+# Determining hugepage requirements: (reference https://www.cybertec-postgresql.com/en/huge-pages-postgresql/)
+#   1. If postgres fails to start, check logs. Should mention
+#     a. "FATAL:  could not map anonymous shared memory: Out of memory"
+#     b. "HINT:  This error usually means that PostgreSQL's request for a shared memory segment exceeded available memory, swap space, or huge pages.
+#         To reduce the request size (currently <SHM_USAGE_SIZE> bytes), reduce PostgreSQL's shared memory usage, perhaps by reducing shared_buffers or max_connections."
+#   2. Use the following formula for calculating memory requirements: `((shm_size + (blksz - (shm_size % blksz))) / (huge_pg * 1024)) + 1` where
+#     a. `shm_size=<SHM_USAGE_SIZE>`
+#     b. `blksz=8192` (default compiled postgres block size)
+#     c. `huge_pg=<HUGE_PAGE_SIZE>` (`cat /proc/meminfo | grep -i hugepagesize`)
+#   3. And round up from the resulting value you get from the fomula above
+circles_kernel_hugepages: 3100 # Default: undefined / 0
+cirlces_limits_nofile_soft: 16384 # Default: 1024
+# Keeping hard file descriptor limit as default for now (1048576)
+
+# Custom commands
+circles_command_kernel_modify_hugepages: "sed -i'.bak' -E 's/(vm\\.nr_hugepages\\s*=\\s*)([0-9]+)/\\1{{ circles_kernel_hugepages }}/' /etc/sysctl.conf; mv /etc/sysctl.conf.bak /etc/circles/backup/bak_{{ circles_playbook_run_timestamp }}_sysctl.conf"
+circles_command_kernel_append_hugepages: "cp /etc/sysctl.conf /etc/circles/backup/{{ circles_playbook_run_timestamp }}_bak_sysctl.conf; echo 'vm.nr_hugepages={{ circles_kernel_hugepages }}' >> /etc/sysctl.conf"
+
+circles_command_limits_modify_nofile: "sed -i'.bak' -E 's/(matrix(\\s+|\\t+)soft(\\s+|\\t+)nofile(\\s+|\\t+))([0-9]+)/\\1{{ cirlces_limits_nofile_soft }}/' /etc/security/limits.conf; mv /etc/security/limits.conf.bak /etc/circles/backup/security/bak_{{ circles_playbook_run_timestamp }}_limits.conf"
+circles_command_limits_append_nofile: "cp /etc/security/limits.conf /etc/circles/backup/security/{{ circles_playbook_run_timestamp }}_bak_limits.conf; echo 'matrix soft nofile {{ cirlces_limits_nofile_soft }}' >> /etc/security/limits.conf"
+
+# Disabled for example configuration (and not really needed for small deployments)
+
+# Custom list of commands that are ran before the playbook sets up the server.
+# pre_setup_aux_command_definitions:
+#   # Backup config file directories
+#   - command: "mkdir -p /etc/circles/backup"
+#   - command: "mkdir -p /etc/circles/backup/security"
+
+#   # Hugepages configuration
+#   - command: "sysctl vm.nr_hugepages={{ circles_kernel_hugepages }}" # Runtime configuration
+#   - command: "if [ `grep -F 'vm.nr_hugepages' /etc/sysctl.conf | wc -l` -gt 0 ]; then {{ circles_command_kernel_modify_hugepages }}; else {{ circles_command_kernel_append_hugepages }}; fi" # Persist configuration
+
+#   # File descriptors configuration
+#   - command: "ulimit -Sn {{ cirlces_limits_nofile_soft }}" # Runtime configuration
+#   - command: "if [ `grep -P 'matrix(\\s+|\\t+)soft(\\s+|\\t+)nofile' /etc/security/limits.conf | wc -l` -gt 0 ]; then {{ circles_command_limits_modify_nofile }}; else {{ circles_command_limits_append_nofile }}; fi" # Persist configuration
+
+
+################################################################################
+# Postgres configuration
+################################################################################
+
+# A Postgres password to use for the superuser Postgres user (called `matrix` by default).
+#
+# The playbook creates additional Postgres users and databases (one for each enabled service)
+# using this superuser account.
+devture_postgres_connection_password: ''
+
+# -----
+# Configuration adapted from: https://pgtune.leopard.in.ua/
+#
+# Values used are changed to be better optimized running postgres along with
+# the matrix server and other services vs values for a dedicated postgres instance
+#
+# Additional tuning values adapted from: https://tcpipuk.github.io/postgres/index.html
+# -----
+
+# Disabled for example configuration (defaults fine for most deployments)
+
+# devture_postgres_data_storage: ssd # Default: ssd
+# devture_postgres_max_connections: 700 # Default: 200
+# devture_postgres_shared_buffers: "{{ 16 * 1024 * 1024 }}" #16GB # Default: 1/4 of system total RAM
+# devture_postgres_effective_cache_size: "{{ 4 * 1024 * 1024 }}" # 4GB (Reduced since available cache space will likely be less because of Synapse worker caches) # Default: 3/4 of system total RAM
+# devture_postgres_maintenance_work_mem: "{{ 1 * 1024 * 1024 }}" #1GB # Default: 2GB
+# devture_postgres_checkpoint_completion_target: 0.9 # Default: 0.9
+# devture_postgres_wal_buffers: "{{ 16 * 1024 }}" # 16MB # Default: 16MB
+# devture_postgres_min_wal_size: "{{ 1 * 1024 * 1024 }}" # 1GB # Default: 1GB
+# devture_postgres_max_wal_size: "{{ 8 * 1024 * 1024 }}" # 8GB (Tom's recommendation: 2x shared_buffers) # Default: 4GB
+# devture_postgres_default_statistics_target: 100 # Default: 100
+# devture_postgres_random_page_cost: 1.1 # Default: 1.1
+# devture_postgres_effective_io_concurrency: 200 # Default: 200
+# devture_postgres_max_worker_processes: 4 #"{{ ansible_processor_nproc }}" # Default: System processor count
+# devture_postgres_max_parallel_workers: 4 #"{{ ansible_processor_nproc }}" # Default: System processor count
+# devture_postgres_max_parallel_workers_per_gather: 2 # Default: 4
+# devture_postgres_max_parallel_maintenance_workers: 2 # Default: 4
+# devture_postgres_work_mem: "{{ 24 * 1024 }}" # 24MB (Tom's recommendation: up to 128MB for sliding sync) # Default: Autoscaling amount based on total available memory, max_connections, and workers
+
+# devture_postgres_huge_pages: "on" # Default: Try
+# devture_postgres_container_shm_size: "{{ 1 * 1024 }}m" # 1GB (Tom's recommendation: up to shared_buffers) # Default: 256M
+
+# devture_postgres_postgres_process_extra_arguments_custom: [
+#   # Tom's additional tuning recommendations
+#   "-c 'autovacuum_analyze_scale_factor=0.05'", # Default: 0.1
+#   "-c 'autovacuum_vacuum_scale_factor=0.02'", # Default: 0.1
+#   "-c 'autovacuum_vacuum_cost_limit=400'", # Default: 200
+#   "-c 'vacuum_cost_limit=300'", # Default: 200
+
+#   "-c 'checkpoint_completion_target=0.9'", # Default: 0.9
+#   "-c 'checkpoint_timeout=900'", # Default: 300s
+#   # "-c 'wal_level=minimal'", # Default: replica
+
+#   # Additional config
+#   "-c 'min_dynamic_shared_memory=1GB'" # Use huge pages for dynamic memory allocation (maintenence tasks) # Default: 0
+#   # "-c 'max_wal_senders=0'" # Allow for wal_level=minimal
+# ]
+
+################################################################################
+# Disabling a bunch of stuff that we don't want/need
+################################################################################
+matrix_coturn_enabled: false
+# matrix_client_element_enabled: false
+matrix_client_cinny_enabled: false
+
+matrix_client_element_enabled: true
+matrix_client_element_docker_image: "ghcr.io/michael-hollister/element-web/swiclops:latest"
+
+################################################################################
+# Synapse configuration
+# - https://github.com/spantaleev/matrix-docker-ansible-deploy/blob/master/docs/configuring-playbook-synapse.md
+# - https://github.com/matrix-org/synapse/blob/master/docs/workers.md
+################################################################################
+
+# Version
+matrix_synapse_version: v1.105.1 # Ignored when using self_build repo
+
+# Source repo
+# matrix_synapse_container_image_self_build: true
+# matrix_synapse_container_image_self_build_repo: "https://github.com/circles-project/synapse.git"  # ~v1.112.0
+# matrix_synapse_docker_image: "localhost:develop"
+
+# - Workers config
+#matrix_synapse_workers_enabled: false
+matrix_synapse_workers_enabled: true
+#matrix_synapse_workers_preset: one-of-each
+#matrix_synapse_workers_generic_workers_count: 2
+#matrix_synapse_workers_federation_sender_workers_count: 2
+matrix_synapse_workers_preset: specialized-workers
+matrix_synapse_workers_room_workers_count: 1
+matrix_synapse_workers_sync_workers_count: 2
+matrix_synapse_workers_client_reader_workers_count: 1
+matrix_synapse_workers_federation_reader_workers_count: 1
+matrix_synapse_workers_federation_sender_workers_count: 1
+
+# Logging
+matrix_synapse_log_level: "WARNING"
+#matrix_synapse_storage_sql_log_level: "DEBUG"
+
+# Other configuration -- Customizing the baseline playbook
+# Mostly these are to increase privacy over the default playbook settings
+# - No guest access
+matrix_synapse_allow_guest_access: false
+# - No URL preview
+matrix_synapse_url_preview_enabled: false
+# - User registration
+matrix_synapse_enable_registration: true                        # This is required so we can call /register/available from Swiclops
+matrix_synapse_enable_registration_without_verification: false  # Require verification in order to prevent registration on Synapse without going through Swiclops
+matrix_synapse_registration_requires_token: true                # We don't create any tokens, so this effectively disables native Synapse /register
+# - No room list search
+matrix_synapse_enable_room_list_search: false
+# - Require auth for fetching displayname / avatar url
+matrix_synapse_require_auth_for_profile_requests: true
+
+# Expose ports on the main Synapse process on localhost for access via ssh tunnel
+matrix_synapse_container_client_api_host_bind_port: '127.0.0.1:8008'
+matrix_synapse_container_manhole_api_host_bind_port: '127.0.0.1:9000'
+
+# Cranking up the cache factor to maximize performance
+matrix_synapse_caches_global_factor: 2.0
+
+matrix_synapse_database_cp_min: 10 # Default: 5
+matrix_synapse_database_cp_max: 35 # Default: 10
+
+# Federation
+matrix_synapse_federation_enabled: true
+
+# Default room version - Set this to 11 so we get reasonable redaction with spec v1.8
+matrix_synapse_default_room_version: "11"
+
+# Expose admin endpoints
+matrix_synapse_container_labels_public_client_synapse_admin_api_enabled: true
+
+# Enable exposure of metrics to Prometheus
+# See https://github.com/matrix-org/synapse/blob/master/docs/metrics-howto.md
+matrix_synapse_metrics_enabled: true
+matrix_synapse_metrics_port: 9100
+
+# Email notifications
+matrix_synapse_email_notif_from: "Circles <circles@{{ matrix_domain }}>"
+matrix_synapse_email_app_name: Circles
+
+matrix_synapse_report_stats: true
+matrix_synapse_report_stats_endpoint: ""
+
+# Rate limits
+matrix_synapse_rc_message:
+  per_second: 3
+  burst_count: 30
+
+matrix_synapse_rc_joins:
+  local:
+    per_second: 0.5
+    burst_count: 20
+  remote:
+    per_second: 0.1
+    burst_count: 15
+
+# Other Synapse configuration YAML
+matrix_synapse_configuration_extension_yaml: |
+  rc_invites:
+    per_room:
+      per_second: 0.5
+      burst_count: 50
+    per_user:
+      per_second: 0.1
+      burst_count: 10
+  user_directory:
+    enabled: true
+    search_all_users: false
+    prefer_local_users: true
+  ui_auth:
+    session_timeout: "60s"
+  experimental:
+    msc2697_enabled: false     # Old dehydrated devices - must be disabled to enable 3814
+    msc3266_enabled: true      # Room summaries
+    msc3391_enabled: false     # Deleting account data
+    msc3967_enabled: true      # No UIA for initial key upload
+    msc3814_enabled: true      # Dehydrated devices
+
+    # Disabling presence related config for example configuration since not using Circles Synapse fork
+    # msc4069_profile_inhibit_propagation: true
+  # Instead use the presence system to send profile updates, but not the online/offline noise
+  # presence:
+  #   enabled: true
+  #   sync_presence_tracking: false
+  #   federation_presence_tracking: false
+  nonrefreshable_access_token_lifetime: 24h
+  refreshable_access_token_lifetime: 24h
+  # The only Synapse passwords that we create are long random strings.
+  # No need to burn 500-1000ms of CPU on every new user registration, hashing
+  # a long random password that we will instantly forget and never use again.
+  # NOTE: Apparently 5 is the minimum number of rounds that the Python bcrypt
+  #       implementation will accept.  Otherwise we would set this to 1.
+  # bcrypt_rounds: 5
+  bcrypt_rounds: 14
+  # Include MAU stats in metrics
+  mau_stats_only: true
+  # Disable sending m.room.member events on every profile change
+  allow_per_room_profiles: false
+
+
+################################################################################
+# Shared secret auth
+# - https://github.com/spantaleev/matrix-docker-ansible-deploy/blob/master/docs/configuring-playbook-shared-secret-auth.md
+# - https://github.com/devture/matrix-synapse-shared-secret-auth
+################################################################################
+auth_shared_secret: ''
+matrix_synapse_ext_password_provider_shared_secret_auth_enabled: true
+matrix_synapse_ext_password_provider_shared_secret_auth_m_login_password_support_enabled: false
+matrix_synapse_ext_password_provider_shared_secret_auth_com_devture_shared_secret_auth_support_enabled: true
+matrix_synapse_ext_password_provider_shared_secret_auth_shared_secret: "{{ auth_shared_secret }}"
+
+################################################################################
+# KeyDB configuration
+################################################################################
+
+keydb_enabled: true
+keydb_connection_password: ''
+
+################################################################################
+# Traefik dashboard
+################################################################################
+devture_traefik_dashboard_enabled: true
+devture_traefik_dashboard_hostname: "{{ matrix_server_fqn_matrix }}"
+devture_traefik_dashboard_basicauth_enabled: true
+devture_traefik_dashboard_basicauth_user: circles
+devture_traefik_dashboard_basicauth_password: ''
+
+################################################################################
+# Matrix mailer (now exim-relay) configuration
+################################################################################
+
+# Disabled for example configuration
+
+# postmark_access_key: ''
+# postmark_secret_key: ''
+
+# exim_relay_sender_address: "circles@{{ matrix_domain }}"
+# exim_relay_relay_use: true
+# exim_relay_relay_host_name: "smtp.postmarkapp.com"
+# exim_relay_relay_host_port: 587
+# exim_relay_relay_auth: true
+# exim_relay_relay_auth_username: "{{ postmark_access_key }}"
+# exim_relay_relay_auth_password: "{{ postmark_secret_key }}"
+
+################################################################################
+# Matrix media repo configuration
+# https://github.com/spantaleev/matrix-docker-ansible-deploy/blob/master/docs/configuring-playbook-matrix-media-repo.md
+################################################################################
+
+# Playbook configured to use v1.3.6
+matrix_media_repo_enabled: true
+
+# Source repo
+# matrix_media_repo_container_image_self_build: true
+# matrix_media_repo_container_image_self_build_repo: "https://github.com/circles-project/matrix-media-repo.git"
+# matrix_media_repo_docker_image: "localhost:main"
+
+# (optional) Turned off by default
+matrix_media_repo_metrics_enabled: true
+
+# These users have full access to the administrative functions of the media repository.
+# See https://github.com/turt2live/matrix-media-repo/blob/release-v1.2.8/docs/admin.md for information on what these people can do. They must belong to one of the
+# configured homeservers above.
+matrix_media_repo_admins:
+   - "@swiclops:{{ matrix_domain }}"
+   - "@admin:{{ matrix_domain }}"
+
+# Example configuration uses file store
+
+# # The kinds available are:
+# #   thumbnails    - Used to store thumbnails of media (local and remote).
+# #   remote_media  - Original copies of remote media (servers not configured by this repo).
+# #   local_media   - Original uploads for local media.
+# #   archives      - Archives of content (GDPR and similar requests).
+# matrix_media_repo_datastore_s3_for_kinds: ["remote_media", "local_media", "archives"]
+
+# # The s3 uploader needs a temporary location to buffer files to reduce memory usage on
+# # small file uploads. If the file size is unknown, the file is written to this location
+# # before being uploaded to s3 (then the file is deleted). If you aren't concerned about
+# # memory usage, set this to an empty string.
+# matrix_media_repo_datastore_s3_opts_temp_path: ""
+# matrix_media_repo_datastore_s3_opts_endpoint: ""
+# matrix_media_repo_datastore_s3_opts_access_key_id: ""
+# matrix_media_repo_datastore_s3_opts_access_secret: ""
+# matrix_media_repo_datastore_s3_opts_ssl: true
+# matrix_media_repo_datastore_s3_opts_bucket_name: ""
+# # matrix_media_repo_datastore_s3_opts_public_base_url: ""
+
+# matrix_media_repo_datastore_s3_opts_bucket_lookup_style: "DNS"
+# matrix_media_repo_datastore_s3_opts_redirect_presign_url: true
+# matrix_media_repo_datastore_s3_opts_redirect_presign_url_expire_time: "1h"
+# matrix_media_repo_datastore_s3_opts_redirect_domain: ""
+
+# # The file upload settings for the media repository
+# matrix_media_repo_max_bytes: 104857600  # 100MB default, 0 to disable
+# matrix_media_repo_min_bytes: 100  # 100 bytes by default
+
+# matrix_media_repo_rate_limit_buckets_download_drain_bytes_per_minute: 20971520  # 20mb
+
+# This is purely for informational reasons and does not actually limit any functionality.
+# Set this to -1 to indicate that there is no limit. Zero will force the use of maxBytes.
+matrix_media_repo_reported_max_bytes: 0
+
+matrix_media_repo_quotas_enabled: true
+
+matrix_media_repo_quotas_users_auto:
+  - glob: "@*:*"  # Affect all users. Use asterisks (*) to match any character.
+    maxBytes: 53687063712  # 50GB
+    # maxBytes: 5368709120  # 5GB
+    maxPending: 5
+    maxFiles: 0
+
+
+################################################################################
+# Static files configuration
+################################################################################
+
+# Enable serving the base domain (.well-known etc)
+matrix_static_files_container_labels_base_domain_enabled: true
+
+# Prevent the default index.html file from being installed
+matrix_static_files_file_index_html_enabled: false
+
+# Disable the automatic redirectin of `https://DOMAIN/` to `https://matrix.DOMAIN/`.
+# This gets automatically enabled when you disable `matrix_static_files_file_index_html_enabled`, as we're doing above.
+matrix_static_files_container_labels_base_domain_root_path_redirection_enabled: false
+
+# Disabled for example configuration
+
+# MSC 1929
+# matrix_static_files_file_matrix_support_enabled: true
+# matrix_static_files_file_matrix_support_property_m_contacts:
+#   - matrix_id: ""
+#     email_address: ""
+#     role: admin
+
+################################################################################
+# Auxiliary files configuration  (matrix-aux role -- Now part of MASH instead)
+# https://github.com/mother-of-all-self-hosting/ansible-role-aux
+################################################################################
+
+# Disabled for example configuration
+
+# aux_file_definitions:
+#   - dest: "{{ matrix_sygnal_data_path }}/apnkey.p8"
+#     src: ""
+#     owner: "matrix"
+#     group: "matrix"
+
+
+
+################################################################################
+# postgres-backup-s3 configuration
+################################################################################
+
+# Disabled for example configuration
+
+postgres_backup_s3_enabled: false
+# postgres_backup_s3_enabled: true
+
+# Source repo
+# postgres_backup_s3_container_image_self_build: true
+# postgres_backup_s3_container_image_self_build_repo: "https://github.com/Michael-Hollister/postgres-backup-s3.git"
+# postgres_backup_s3_docker_image: "localhost:circles"
+
+# postgres_backup_s3_access_key_id: ""
+# postgres_backup_s3_secret_access_key: ""
+# postgres_backup_s3_bucket: ""
+# postgres_backup_s3_prefix: ""
+# postgres_backup_s3_region: ""
+# postgres_backup_s3_endpoint: ""
+
+# # https://crontab.cronhub.io/
+# postgres_backup_s3_schedule: "0 0 * * *"  # Daily
+
+################################################################################
+# Prometheus and Grafana
+# - https://github.com/spantaleev/matrix-docker-ansible-deploy/blob/master/docs/configuring-playbook-prometheus-grafana.md
+################################################################################
+
+prometheus_enabled: false
+prometheus_node_exporter_enabled: true
+prometheus_postgres_exporter_enabled: false   # This creates an error in the logs every 30 seconds, forever...
+
+grafana_enabled: false
+grafana_anonymous_access: false
+
+# This has no relation to your Matrix user id. It can be any username you'd like.
+# Changing the username subsequently won't work.
+grafana_default_admin_user: "circles-grafana"
+
+# Changing the password subsequently won't work.
+grafana_default_admin_password: ""
+
+# Disabled for example configuration
+
+# Remote metrics exposure
+prometheus_node_exporter_container_labels_traefik_enabled: false
+# prometheus_node_exporter_container_labels_traefik_enabled: true
+
+# prometheus_node_exporter_container_labels_metrics_middleware_basic_auth_enabled: true
+# # See: https://doc.traefik.io/traefik/middlewares/http/basicauth/#users
+# prometheus_node_exporter_container_labels_metrics_middleware_basic_auth_users: ""
+
+# matrix_media_repo_metrics_proxying_enabled: true
+
+# matrix_media_repo_container_labels_metrics_middleware_basic_auth_enabled: true
+# # See: https://doc.traefik.io/traefik/middlewares/http/basicauth/#users
+# matrix_media_repo_container_labels_metrics_middleware_basic_auth_users: ""
+
+# matrix_synapse_metrics_proxying_enabled: true
+
+# matrix_synapse_container_labels_public_metrics_middleware_basic_auth_enabled: true
+# # See: https://doc.traefik.io/traefik/middlewares/http/basicauth/#users
+# matrix_synapse_container_labels_public_metrics_middleware_basic_auth_users: ""
+
+################################################################################
+# Swiclops configuration
+################################################################################
+
+matrix_swiclops_enabled: true
+
+matrix_swiclops_matrix_username: "swiclops"
+matrix_swiclops_matrix_password: ""
+
+matrix_swiclops_database_type: "postgres"
+matrix_swiclops_postgres_database: "swiclops"
+matrix_swiclops_postgres_username: "swiclops"
+matrix_swiclops_postgres_password: ""
+
+matrix_swiclops_bsspeke_oprf_secret: ""
+
+matrix_swiclops_postmark_token: ""
+
+matrix_swiclops_policy_privacy_enabled: true
+matrix_swiclops_policy_privacy_version: "1.3"
+matrix_swiclops_policy_privacy_url: "https://circles.futo.org/privacy/service/index.html"
+matrix_swiclops_policy_privacy_markdown_url: "https://circles.futo.org/privacy.md"
+matrix_swiclops_policy_terms_enabled: true
+matrix_swiclops_policy_terms_version: "1.3"
+matrix_swiclops_policy_terms_url: "https://circles.futo.org/terms/index.html"
+matrix_swiclops_policy_terms_markdown_url: "https://circles.futo.org/terms.md"
+
+# Disabled email token stages for example configuration
+
+matrix_swiclops_register_flows:
+- stages: ["m.login.terms", "m.enroll.username", "m.enroll.bsspeke-ecc.oprf", "m.enroll.bsspeke-ecc.save"]
+  # - stages: ["org.futo.you_shall_not_pass"]
+  # - stages: ["m.login.terms", "org.futo.subscriptions.free_forever", "m.enroll.username", "m.enroll.bsspeke-ecc.oprf", "m.enroll.bsspeke-ecc.save"]
+#  - stages: ["m.login.terms", "org.futo.subscriptions.free_forever", "m.enroll.email.request_token", "m.enroll.email.submit_token", "m.enroll.username", "m.enroll.bsspeke-ecc.oprf", "m.enroll.bsspeke-ecc.save"]
+#  - stages: ["m.login.terms", "org.futo.subscriptions.apple_storekit_v2", "m.enroll.email.request_token", "m.enroll.email.submit_token", "m.enroll.username", "m.enroll.bsspeke-ecc.oprf", "m.enroll.bsspeke-ecc.save"]
+
+matrix_swiclops_passthru_legacy_login: true
+
+# Disabled for example configuration
+matrix_swiclops_appstore_enabled: false
+
+# matrix_swiclops_appstore_enabled: true
+# matrix_swiclops_appstore_apps:
+#   - bundle_id: ""
+#     name: "Circles"
+#     apple_id: ""
+#     secret: ""
+# matrix_swiclops_appstore_products:
+#   - product_id: ""
+#     level: 1
+#     quota: 5368709120  # 5GB
+#     shareable: false
+# matrix_swiclops_appstore_environment: "Sandbox"
+# matrix_swiclops_appstore_grace_period: 28
+
+# matrix_swiclops_mailchimp_enabled: false
+# matrix_swiclops_mailchimp_api_key: ""
+# matrix_swiclops_mailchimp_server: ""
+# matrix_swiclops_mailchimp_list_id: ""
+
+
+
+################################################################################
+# User registration
+################################################################################
+
+matrix_user_creator_users_additional:
+  - username: "{{ matrix_swiclops_matrix_username }}"
+    initial_password: "{{ matrix_swiclops_matrix_password }}"
+    initial_type: "admin"
+  - username: "admin"
+    initial_password: ""
+    initial_type: "admin"
+
+################################################################################
+# Sygnal push notification gateway
+################################################################################
+
+# Disabled for example configuration
+
+matrix_sygnal_enabled: false
+# matrix_sygnal_enabled: true
+
+# You need at least 1 app defined.
+# matrix_sygnal_apps:
+#   org.futo.circles.android:
+#     type: gcm
+#     api_key: ""
+
+#     # This is the maximum number of connections to GCM servers at any one time
+#     # the default is 20.
+#     max_connections: 20
+
+#     # This is the maximum number of in-flight requests *for this pushkin*
+#     # before additional notifications will be failed.
+#     # (This is a robustness measure to prevent one pushkin stacking up with
+#     #  queued requests and saturating the inbound connection queue of a load
+#     #  balancer or reverse proxy).
+#     # Defaults to 512 if unset.
+#     inflight_request_limit: 512
+
+#   org.futo.circles.ios:
+#     type: apns
+#     platform: production
+#     keyfile: /data/apnkey.p8
+#     key_id: ""
+#     team_id: ""
+#     topic: ""
+#     convert_device_token_to_hex: false
+
+###############################################################################
+# ntfy
+################################################################################
+
+# Enabling it is the only required setting
+ntfy_enabled: true
+
+# Some other options
+matrix_server_fqn_ntfy: "ntfy.{{ matrix_domain }}"
+#matrix_ntfy_configuration_extension_yaml: |
+#  log_level: DEBUG
+
+

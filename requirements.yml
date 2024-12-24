@@ -77,7 +77,7 @@
   name: traefik_certs_dumper
 
 # Swiclops authentication service
-- src: git+https://gitlab.futo.org/cvwright/ansible-role-swiclops.git
+- src: git+https://github.com/circles-project/ansible-role-swiclops.git
   version: 7e9824d01afb82b6c25877e5df30c8885f1b97c8
   name: swiclops
 # End swiclops changes
@@ -87,3 +87,5 @@
   version: 9fe63ccb6ab07c450408ac2ceb7f892cc8e90b83
   name: postgres_backup_s3
 # End postgres-backup-s3 changes
+
+
